@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use Laravel\Passport\ClientRepository;
 use Illuminate\Support\Facades\Auth;
+use App\Mail\WelcomeMail;
+
 
 class UserController extends Controller
 {
@@ -24,58 +26,50 @@ class UserController extends Controller
 
 
     /**
-     * Enregistre un nouvel utilisateur.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function register(Request $request)
-    {
-        // Valider les données du formulaire
-        $request->validate([
-            'firstname' => 'required|string|max:255',
-            'lastname' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => [
-                'string',
-                'min:8', // Minimum 8 caractères
-                'confirmed', // Le champ de confirmation doit correspondre
-                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/'
-                // Au moins une majuscule, une minuscule, un chiffre et un caractère spécial
-            ],
-        ]);
+ * Enregistre un nouvel utilisateur.
+ *
+ * @param  \Illuminate\Http\Request  $request
+ * @return \Illuminate\Http\RedirectResponse
+ */
+public function register(Request $request)
+{
+    // Valider les données du formulaire
+    $request->validate([
+        'firstname' => 'required|string|max:255',
+        'lastname' => 'required|string|max:255',
+        'email' => 'required|string|email|max:255|unique:users',
+    ]);
 
-        // Vérifier si l'utilisateur existe déjà avec cet email
-        if (User::where('email', $request->email)->exists()) {
-            return response()->json([
-                'status' => 422,
-                'message' => "Un utilisateur avec cet email existe déjà.",
-            ], 422);
-        }
+    // Générer un mot de passe aléatoire
+    $password = bin2hex(random_bytes(8)); // Génère un mot de passe de 8 caractères
 
-        // Créer un nouvel utilisateur
-        $user = User::create([
-            'firstname' => $request->firstname,
-            'lastname' => $request->lastname,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'email_verified_at' => now(),
-        ]);
+    // Créer un nouvel utilisateur
+    $user = User::create([
+        'firstname' => $request->firstname,
+        'lastname' => $request->lastname,
+        'email' => $request->email,
+        'password' => Hash::make($password), // Hasher le mot de passe
+        'email_verified_at' => now(),
+    ]);
 
-        // Vérifier si l'utilisateur a bien été créé
-        if (!$user) {
-            return response()->json([
-                'status' => 500,
-                'message' => "Erreur lors de la création de l'utilisateur",
-            ], 500);
-        }
-
-        // Création d'un token Passport pour l'utilisateur
-        $token = $user->createToken('BloChallenge')->accessToken;
-
-        // Rediriger l'utilisateur vers la page de connexion
-        return redirect()->back()->with('success', 'Votre compte a été créé avec succès. Vous pouvez vous connecter');
+    // Vérifier si l'utilisateur a bien été créé
+    if (!$user) {
+        return response()->json([
+            'status' => 500,
+            'message' => "Erreur lors de la création de l'utilisateur",
+        ], 500);
     }
+
+    // Envoi de l'e-mail de bienvenue avec le mot de passe
+    Mail::to($user->email)->send(new WelcomeMail($user, $password));
+
+    // Création d'un token Passport pour l'utilisateur
+    $token = $user->createToken('BloChallenge')->accessToken;
+
+    // Rediriger l'utilisateur vers la page de connexion
+    return redirect()->back()->with('success', 'Votre compte a été créé avec succès. Vous pouvez vous connecter');
+}
+
 
      /**
      * Affiche le formulaire de connexion.

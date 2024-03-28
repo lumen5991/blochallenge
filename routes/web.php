@@ -33,3 +33,11 @@ Route::post('/login', [UserController::class, 'login']);
 Route::view('/login', 'users.login')->name('login'); */
 
 Route::view('listuser', 'admin.listUser')->name('listUser');
+
+Route::view('localisations', 'admin.map')->name('map');
+
+Route::view('listePoubelle', 'admin.listPoub')->name('listePoubelle');
+
+Route::view('addPoub', 'admin.registPoub')->name('addPoub');
+
+Route::view('notifications', 'admin.notification')->name('notification');
